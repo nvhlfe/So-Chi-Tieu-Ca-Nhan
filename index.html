@@ -321,19 +321,136 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <script>
-// localStorage-backed shim matching the get/set interface the app was built around.
-// Each browser/device keeps its own copy (no cross-device sync without a real backend).
+  window.__fsReadyPromise = new Promise((resolve) => { window.__fsMarkReady = resolve; });
+</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
+
+let db = null;
+const isConfigured = firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE_');
+if (isConfigured) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+  } catch (e) {
+    console.error('Firebase init lỗi:', e);
+  }
+}
+
+window.__fsAvailable = () => !!db;
+window.__fsGetBoard = async function (boardId) {
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'boards', boardId));
+  return snap.exists() ? snap.data() : null;
+};
+window.__fsSetField = async function (boardId, field, value) {
+  if (!db) return;
+  await setDoc(doc(db, 'boards', boardId), { [field]: value, updatedAt: Date.now() }, { merge: true });
+};
+window.__fsListen = function (boardId, onChange) {
+  if (!db) return () => {};
+  return onSnapshot(doc(db, 'boards', boardId), (snap) => {
+    if (snap.exists()) onChange(snap.data());
+  });
+};
+window.__fsMarkReady();
+</script>
+
+<script>
+// Storage: local-first (instant load) + Firestore sync when firebase-config.js is filled in.
+// If Firebase isn't configured, this behaves exactly like plain localStorage (unchanged from before).
+const FIELD_MAP = { 'tx-list':'txList', 'category-rules':'categoryRules', 'card-labels':'cardLabels', 'card-banks':'cardBanks' };
+let SYNC_CODE = localStorage.getItem('sct:sync-code') || null;
+let fsUnsubscribe = null;
+
+function genSyncCode(){
+  return (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(16).slice(2))).replace(/-/g,'');
+}
+function fsOn(){ return SYNC_CODE && window.__fsAvailable && window.__fsAvailable(); }
+
 const storage = {
   async get(key){
+    if(fsOn()){
+      try{
+        const board = await window.__fsGetBoard(SYNC_CODE);
+        const field = FIELD_MAP[key];
+        if(board && field && board[field] !== undefined){
+          localStorage.setItem('sct:'+key, board[field]);
+          return {key, value: board[field]};
+        }
+      }catch(e){ console.error('Firestore get lỗi', e); }
+    }
     const v = localStorage.getItem('sct:'+key);
     return v===null ? null : {key, value:v};
   },
   async set(key, value){
     localStorage.setItem('sct:'+key, value);
+    if(fsOn()){
+      const field = FIELD_MAP[key];
+      if(field){ try{ await window.__fsSetField(SYNC_CODE, field, value); }catch(e){ console.error('Firestore set lỗi', e); } }
+    }
     return {key, value};
   }
 };
+
+async function reloadAllFromLocal(){
+  TX = JSON.parse(localStorage.getItem('sct:tx-list') || '[]');
+  RULES = JSON.parse(localStorage.getItem('sct:category-rules') || JSON.stringify(DEFAULT_RULES));
+  CARD_LABELS = JSON.parse(localStorage.getItem('sct:card-labels') || '{}');
+  CARD_BANKS = JSON.parse(localStorage.getItem('sct:card-banks') || '{}');
+}
+
+function startSyncListener(){
+  if(fsUnsubscribe){ fsUnsubscribe(); fsUnsubscribe = null; }
+  if(!fsOn()) return;
+  fsUnsubscribe = window.__fsListen(SYNC_CODE, async (board)=>{
+    let changed = false;
+    for(const [key, field] of Object.entries(FIELD_MAP)){
+      if(board[field] !== undefined && localStorage.getItem('sct:'+key) !== board[field]){
+        localStorage.setItem('sct:'+key, board[field]);
+        changed = true;
+      }
+    }
+    if(changed){
+      await reloadAllFromLocal();
+      render();
+      showToast('Đã đồng bộ dữ liệu mới từ thiết bị khác');
+    }
+  });
+}
+
+async function linkSyncCode(code){
+  code = (code||'').trim();
+  if(!code){ showToast('Nhập mã đồng bộ trước đã'); return; }
+  if(!window.__fsAvailable || !window.__fsAvailable()){ showToast('Chưa cấu hình Firebase, xem README'); return; }
+  try{
+    const board = await window.__fsGetBoard(code);
+    if(!board){ showToast('Không tìm thấy mã này'); return; }
+    SYNC_CODE = code;
+    localStorage.setItem('sct:sync-code', SYNC_CODE);
+    for(const [key, field] of Object.entries(FIELD_MAP)){
+      if(board[field] !== undefined) localStorage.setItem('sct:'+key, board[field]);
+    }
+    await reloadAllFromLocal();
+    startSyncListener();
+    activeCard = null; activeMonth = null;
+    render();
+    renderManageBody();
+    showToast('Đã liên kết thiết bị này với mã đồng bộ');
+  }catch(e){ console.error(e); showToast('Lỗi khi liên kết mã đồng bộ'); }
+}
+function unlinkSyncCode(){
+  SYNC_CODE = null;
+  localStorage.removeItem('sct:sync-code');
+  if(fsUnsubscribe){ fsUnsubscribe(); fsUnsubscribe = null; }
+  renderManageBody();
+  showToast('Đã ngắt đồng bộ, dữ liệu trên đám mây vẫn còn nguyên');
+}
 
 const CARD_COLORS = ['#A6402D','#2F6F4F','#3A5A9B','#8A5CA6','#B8860B'];
 
@@ -429,6 +546,8 @@ let pendingImages = []; // {base64, mediaType}
 function fmt(n){ return n.toLocaleString('vi-VN') + 'đ'; }
 
 async function loadData(){
+  await (window.__fsReadyPromise || Promise.resolve());
+
   try{
     const r = await storage.get('tx-list', false);
     TX = r ? JSON.parse(r.value) : null;
@@ -454,6 +573,19 @@ async function loadData(){
     const r4 = await storage.get('card-banks', false);
     CARD_BANKS = r4 ? JSON.parse(r4.value) : {};
   }catch(e){ CARD_BANKS = {}; }
+
+  if(window.__fsAvailable && window.__fsAvailable() && !SYNC_CODE){
+    // First run with Firebase configured: mint a sync code and seed the cloud copy
+    // with whatever's already local, so this device becomes the "source" others link to.
+    SYNC_CODE = genSyncCode();
+    localStorage.setItem('sct:sync-code', SYNC_CODE);
+    await storage.set('tx-list', JSON.stringify(TX));
+    await storage.set('category-rules', JSON.stringify(RULES));
+    await storage.set('card-labels', JSON.stringify(CARD_LABELS));
+    await storage.set('card-banks', JSON.stringify(CARD_BANKS));
+  }
+  startSyncListener();
+
   render();
 }
 async function saveTx(){ try{ await storage.set('tx-list', JSON.stringify(TX), false); }catch(e){ console.error(e); } }
@@ -693,6 +825,44 @@ function renderManageBody(){
   }
 
   let html = '';
+
+  if(window.__fsAvailable && window.__fsAvailable()){
+    if(SYNC_CODE){
+      html += `
+      <div class="option-row">
+        <div style="flex:1;">
+          <div class="option-title">Đồng bộ nhiều thiết bị: đang bật</div>
+          <div class="option-sub">Nhập mã dưới đây trên thiết bị khác để xem chung dữ liệu này. Giữ mã riêng tư như mật khẩu — ai có mã cũng xem/sửa được.</div>
+          <div class="btn-row" style="margin-top:8px;">
+            <input id="syncCodeDisplay" readonly value="${SYNC_CODE}" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--line-strong);font-size:12px;font-family:'IBM Plex Mono',monospace;min-height:40px;">
+            <button class="ghost" onclick="navigator.clipboard.writeText('${SYNC_CODE}');showToast('Đã sao chép mã')">Sao chép</button>
+          </div>
+          <div class="btn-row"><button class="ghost" onclick="unlinkSyncCode()">Ngắt đồng bộ trên máy này</button></div>
+        </div>
+      </div>`;
+    } else {
+      html += `
+      <div class="option-row">
+        <div style="flex:1;">
+          <div class="option-title">Liên kết với thiết bị khác</div>
+          <div class="option-sub">Dán mã đồng bộ lấy từ thiết bị đã dùng app này trước đó.</div>
+          <div class="btn-row" style="margin-top:8px;">
+            <input id="syncCodeInput" placeholder="Dán mã đồng bộ" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--line-strong);font-size:13px;min-height:40px;">
+          </div>
+          <div class="btn-row"><button class="primary" onclick="linkSyncCode(document.getElementById('syncCodeInput').value)">Liên kết</button></div>
+        </div>
+      </div>`;
+    }
+  } else {
+    html += `
+      <div class="option-row">
+        <div>
+          <div class="option-title">Đồng bộ nhiều thiết bị: chưa bật</div>
+          <div class="option-sub">Cấu hình Firebase trong <code>firebase-config.js</code> để bật (xem README).</div>
+        </div>
+      </div>`;
+  }
+
   if(multiCard){
     html += `
     <div class="option-row">
