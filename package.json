@@ -1,0 +1,9 @@
+{
+  "name": "so-chi-tieu-ca-nhan",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}
