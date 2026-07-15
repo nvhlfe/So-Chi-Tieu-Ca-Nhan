@@ -4,7 +4,38 @@
 // Set GEMINI_API_KEY in your Vercel Project Settings → Environment Variables.
 // Get a free key (no credit card required) at https://aistudio.google.com/apikey
 
-const MODEL = 'gemini-2.5-flash';
+// Google retires specific model IDs (like gemini-2.5-flash) on short notice —
+// it has happened weeks before the officially announced shutdown date. We try
+// an auto-updating "-latest" alias first, then fall back to pinned IDs if that
+// ever breaks too.
+const MODEL_CANDIDATES = [
+  'gemini-flash-latest',
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
+];
+
+async function callGemini(model, apiKey, base64, mediaType, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: mediaType || 'image/jpeg', data: base64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 2000,
+      },
+    }),
+  });
+  const data = await resp.json();
+  return { resp, data };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,30 +56,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
-    const apiResp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          role: 'user',
-          parts: [
-            { inline_data: { mime_type: mediaType || 'image/jpeg', data: base64 } },
-            { text: prompt },
-          ],
-        }],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 2000,
-        },
-      }),
-    });
+    let resp, data, lastError;
 
-    const data = await apiResp.json();
+    for (const model of MODEL_CANDIDATES) {
+      ({ resp, data } = await callGemini(model, apiKey, base64, mediaType, prompt));
+      if (resp.ok) break;
+      // Only fall through to the next model on "model unavailable/not found" style
+      // errors. Real problems (bad key, quota, bad request) should surface immediately.
+      const msg = (data && data.error && data.error.message) || '';
+      const isModelIssue = resp.status === 404 || /no longer available|not found|not supported/i.test(msg);
+      if (!isModelIssue) break;
+      lastError = msg;
+    }
 
-    if (!apiResp.ok) {
-      const msg = (data && data.error && data.error.message) || `Gemini API lỗi (HTTP ${apiResp.status})`;
-      res.status(apiResp.status).json({ error: msg });
+    if (!resp.ok) {
+      const msg = (data && data.error && data.error.message) || lastError || `Gemini API lỗi (HTTP ${resp.status})`;
+      res.status(resp.status).json({ error: msg });
       return;
     }
 

@@ -13,7 +13,7 @@ bất cứ lúc nào, không cần mở qua Claude. Bản này dùng **Google Ge
 | Truy cập | Chỉ trong đoạn chat | Mở link bất cứ lúc nào, không cần Claude |
 | Chi phí | — | 0đ nếu ở trong hạn mức miễn phí của Gemini (xem bên dưới) |
 
-## Giới hạn miễn phí của Gemini (model `gemini-2.5-flash`)
+## Giới hạn miễn phí của Gemini (model `gemini-flash-latest`)
 
 Tính đến giữa 2026: khoảng **15 lượt gọi/phút** và **~1.500 lượt gọi/ngày**, không cần khai báo thẻ.
 Với nhu cầu cá nhân (vài chục ảnh mỗi ngày) thì dư sức dùng thoải mái, không tốn tiền.
@@ -62,4 +62,4 @@ package.json        → khai báo Node runtime cho Vercel
 ## Lưu ý
 - Dữ liệu lưu trong `localStorage` của từng trình duyệt/thiết bị — nếu muốn xem trên nhiều thiết bị, dùng chức năng **Xuất Excel** để backup, hoặc nói mình biết để nâng cấp lên lưu trữ đám mây thật (cần thêm 1 database, ví dụ Vercel KV hoặc Supabase).
 - Nếu đọc ảnh báo lỗi, mở tab **Deployments → xem Logs** trên Vercel để thấy lỗi thật từ `api/analyze.js` (thường là do chưa set đúng API key, key sai project, hoặc vượt hạn mức miễn phí trong ngày).
-- Nếu sau này Google đổi tên model `gemini-2.5-flash` (các hãng AI hay cập nhật model mới), chỉ cần sửa 1 dòng `const MODEL = ...` trong `api/analyze.js`.
+- Google đổi/khai tử model Gemini khá thường xuyên (đã từng xảy ra việc 1 model bị khoá đột ngột trước cả ngày công bố chính thức). File `api/analyze.js` đã thử lần lượt vài model (`gemini-flash-latest` → `gemini-2.5-flash` → `gemini-flash-lite-latest`) nên thường sẽ tự "né" được các đợt khai tử mà không cần bạn sửa gì. Nếu cả 3 vẫn lỗi (rất hiếm), nói mình biết để cập nhật danh sách `MODEL_CANDIDATES` sang model mới nhất tại https://ai.google.dev/gemini-api/docs/models
