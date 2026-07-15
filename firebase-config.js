@@ -11,8 +11,5 @@ export const firebaseConfig = {
   projectId: "so-thu-chi-the-tin-dung",
   storageBucket: "so-thu-chi-the-tin-dung.firebasestorage.app",
   messagingSenderId: "759680136538",
-  appId: "1:759680136538:web:91ae330660becc1894ef63"
+  appId: "1:759680136538:web:91ae330660becc1894ef63",
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
