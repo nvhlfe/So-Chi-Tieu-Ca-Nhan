@@ -160,21 +160,20 @@
   .sheet h2{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;font-size:17px;font-weight:700;margin:0 0 4px;}
   .sheet p{font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
 
-  .upload-zone{
-    border:1.5px dashed var(--line-strong);border-radius:12px;
-    padding:22px 14px;text-align:center;cursor:pointer;background:var(--sunken);
-    margin-bottom:10px;
+  .entry-tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--sunken);border-radius:10px;padding:4px;}
+  .entry-tab{
+    flex:1;border:none;background:transparent;padding:9px 8px;border-radius:8px;
+    font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;min-height:38px;
   }
-  .upload-zone svg{margin-bottom:6px;}
-  .upload-zone .u-title{font-size:13.5px;font-weight:600;}
-  .upload-zone .u-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-  #fileInput,#cameraInput{display:none;}
+  .entry-tab.active{background:var(--paper);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.08);}
 
-  .thumb-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
-  .thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--line);}
-
-  details.textfallback{margin-top:6px;}
-  details.textfallback summary{font-size:12px;color:var(--ink-soft);cursor:pointer;padding:6px 0;}
+  .form-row{display:flex;gap:10px;}
+  .form-field{flex:1;margin-bottom:10px;}
+  .form-field label{display:block;font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;font-weight:500;}
+  .form-field input, .form-field select{
+    width:100%;padding:11px 10px;border-radius:8px;border:1px solid var(--line-strong);
+    background:var(--paper);color:var(--ink);font-size:14px;min-height:44px;font-family:'Inter',sans-serif;
+  }
   textarea{
     width:100%;min-height:90px;background:var(--sunken);border:1px solid var(--line-strong);
     border-radius:8px;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12px;
@@ -284,31 +283,60 @@
 <div class="sheet" id="sheet">
   <div class="sheet-handle"></div>
   <h2>Thêm giao dịch mới</h2>
-  <p>Chụp hoặc dán ảnh tin nhắn báo giao dịch — hệ thống tự đọc ngày, số tiền và phân loại danh mục.</p>
+  <p>Dán nguyên văn tin nhắn báo giao dịch từ ngân hàng, hoặc nhập tay từng giao dịch.</p>
 
-  <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#A6402D" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 15l-5-4-7 6"/></svg>
-    <div class="u-title">Chọn ảnh hoặc dán (Ctrl/Cmd+V)</div>
-    <div class="u-sub">Ảnh chụp màn hình tin nhắn ngân hàng</div>
+  <div class="entry-tabs">
+    <button class="entry-tab active" id="tabPasteBtn" onclick="switchEntryTab('paste')">Dán tin nhắn</button>
+    <button class="entry-tab" id="tabManualBtn" onclick="switchEntryTab('manual')">Nhập tay</button>
   </div>
-  <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(this.files)">
 
-  <div class="thumb-row" id="thumbRow"></div>
+  <div id="paneTPaste">
+    <textarea id="rawInput" placeholder="The VPBank 5243...1052 vua chi tieu -29,000VND ND:.OP*Green SM vao luc 17:38 06/07.Han muc con lai tam tinh 93,242,643VND.
 
-  <div class="btn-row">
-    <button class="primary" id="analyzeBtn" onclick="analyzeImages()" disabled>Đọc ảnh & phân tích</button>
-    <button class="ghost" onclick="clearImages()">Xoá ảnh</button>
+Dán được nhiều tin nhắn cùng lúc, mỗi tin 1 đoạn."></textarea>
+    <div class="btn-row"><button class="primary" onclick="parseTextInput()">Phân tích</button></div>
   </div>
-  <div class="status-line" id="statusLine" style="display:none;"></div>
 
-  <details class="textfallback">
-    <summary>Hoặc dán nguyên văn tin nhắn (không dùng ảnh)</summary>
-    <textarea id="rawInput" placeholder="The VPBank 5243...1052 vua chi tieu -29,000VND ND:.OP*Green SM vao luc 17:38 06/07.Han muc con lai tam tinh 93,242,643VND."></textarea>
-    <div class="btn-row"><button class="ghost" onclick="parseTextInput()">Phân tích văn bản</button></div>
-  </details>
+  <div id="paneManual" style="display:none;">
+    <div class="form-row">
+      <div class="form-field">
+        <label>Ngày</label>
+        <input type="date" id="mDate">
+      </div>
+      <div class="form-field">
+        <label>Giờ</label>
+        <input type="time" id="mTime">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Nội dung / merchant</label>
+      <input type="text" id="mMerchant" placeholder="VD: Grab, Highlands Coffee, Circle K...">
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Số tiền (VND)</label>
+        <input type="number" id="mAmount" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="form-field">
+        <label>Loại</label>
+        <select id="mType">
+          <option value="chi">Chi tiêu</option>
+          <option value="hoan">Hoàn / Huỷ</option>
+          <option value="nap">Nạp tiền</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Danh mục</label>
+      <select id="mCat"></select>
+    </div>
+    <div class="btn-row"><button class="primary" onclick="addManualTransaction()">Thêm giao dịch</button></div>
+    <div class="status-line" id="manualStatus" style="display:none;"></div>
+  </div>
 
   <div class="preview-list" id="previewList"></div>
 </div>
+
 
 <div class="sheet-overlay" id="manageOverlay" onclick="closeManageSheet()"></div>
 <div class="sheet" id="manageSheet">
@@ -541,7 +569,6 @@ let activeCard = null;
 let activeMonth = null;
 let activeCatFilter = null;
 let pendingParsed = [];
-let pendingImages = []; // {base64, mediaType}
 
 function fmt(n){ return n.toLocaleString('vi-VN') + 'đ'; }
 
@@ -745,6 +772,7 @@ function showToast(msg){ const t=document.getElementById('toast'); t.textContent
 
 // ---- bottom sheet ----
 function openSheet(){
+  switchEntryTab('paste');
   document.getElementById('overlay').classList.add('open');
   document.getElementById('sheet').classList.add('open');
 }
@@ -993,137 +1021,51 @@ function exportExcel(){
   showToast('Đã xuất file Excel');
 }
 
-// ---- image handling ----
-function resizeImage(file, maxDim=1280, quality=0.85){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = e=>{
-      const img = new Image();
-      img.onload = ()=>{
-        let {width, height} = img;
-        if(width > maxDim || height > maxDim){
-          const scale = maxDim / Math.max(width, height);
-          width = Math.round(width*scale); height = Math.round(height*scale);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve({dataUrl, base64: dataUrl.split(',')[1], mediaType:'image/jpeg'});
-      };
-      img.onerror = ()=>reject(new Error('Không đọc được file ảnh'));
-      img.src = e.target.result;
-    };
-    reader.onerror = ()=>reject(new Error('Không đọc được file'));
-    reader.readAsDataURL(file);
-  });
+// ---- entry tabs (paste text vs manual) ----
+function switchEntryTab(tab){
+  const isPaste = tab==='paste';
+  document.getElementById('tabPasteBtn').classList.toggle('active', isPaste);
+  document.getElementById('tabManualBtn').classList.toggle('active', !isPaste);
+  document.getElementById('paneTPaste').style.display = isPaste ? 'block' : 'none';
+  document.getElementById('paneManual').style.display = isPaste ? 'none' : 'block';
+  if(!isPaste) prefillManualForm();
 }
-
-async function handleFiles(files){
-  for(const file of Array.from(files)){
-    try{
-      const {dataUrl, base64, mediaType} = await resizeImage(file);
-      pendingImages.push({base64, mediaType});
-      const img = document.createElement('img');
-      img.className='thumb'; img.src=dataUrl;
-      document.getElementById('thumbRow').appendChild(img);
-    }catch(e){
-      showToast('Không đọc được 1 ảnh, bỏ qua');
-    }
+function prefillManualForm(){
+  const now = new Date();
+  document.getElementById('mDate').value = now.toISOString().slice(0,10);
+  document.getElementById('mTime').value = now.toTimeString().slice(0,5);
+  const catSel = document.getElementById('mCat');
+  if(catSel.options.length===0){
+    catSel.innerHTML = Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
   }
-  document.getElementById('analyzeBtn').disabled = pendingImages.length===0;
 }
-document.addEventListener('paste', (e)=>{
-  if(!document.getElementById('sheet').classList.contains('open')) return;
-  const items = e.clipboardData && e.clipboardData.items;
-  if(!items) return;
-  const files=[];
-  for(const it of items){ if(it.type.startsWith('image/')) files.push(it.getAsFile()); }
-  if(files.length) handleFiles(files);
-});
-function clearImages(){
-  pendingImages = [];
-  document.getElementById('thumbRow').innerHTML='';
-  document.getElementById('analyzeBtn').disabled = true;
-  document.getElementById('statusLine').style.display='none';
-}
+async function addManualTransaction(){
+  const date = document.getElementById('mDate').value;
+  const time = document.getElementById('mTime').value || '00:00';
+  const merchant = document.getElementById('mMerchant').value.trim();
+  const amount = parseInt(document.getElementById('mAmount').value, 10);
+  const type = document.getElementById('mType').value;
+  const cat = document.getElementById('mCat').value;
+  const statusEl = document.getElementById('manualStatus');
 
-const EXTRACTION_PROMPT = `Đây là ảnh chụp màn hình tin nhắn SMS thông báo giao dịch từ ngân hàng (tiếng Việt, dạng "The <TenNganHang> <so_the_an>..."). Hãy đọc TẤT CẢ các tin nhắn giao dịch hiển thị trong ảnh (có thể có nhiều tin, có thể có nhiều thẻ khác nhau).
-
-Với mỗi tin nhắn giao dịch, trích xuất:
-- date: ngày dạng DD/MM
-- time: giờ dạng HH:MM
-- merchant: nội dung sau "ND:"
-- amount: số tiền, chỉ số nguyên không dấu phẩy
-- type: "chi" nếu là chi tiêu/mua sắm (chứa "vua chi tieu" hoặc "vua phat sinh GD"), "hoan" nếu là hoàn/huỷ giao dịch (chứa "duoc huy bo"), "nap" nếu là nạp tiền/chuyển khoản vào (chứa "tang +" và liên quan NHDT/chuyển khoản)
-- card: số thẻ bị che ở đầu tin nhắn, dạng "XXXX...XXXX" (ví dụ "5243...1052"), lấy nguyên văn
-- bank: tên ngân hàng ngay trước số thẻ nếu có (ví dụ "VPBank"), để trống nếu không thấy
-
-Bỏ qua các tin nhắn KHÔNG phải giao dịch (ví dụ cảnh báo OTP, khuyến mãi...).
-
-Chỉ trả về một JSON array hợp lệ, không kèm giải thích, không markdown code fence. Ví dụ:
-[{"date":"06/07","time":"17:38","merchant":".OP*Green SM","amount":29000,"type":"chi","card":"5243...1052","bank":"VPBank"}]
-
-Nếu ảnh không chứa tin nhắn giao dịch nào, trả về [].`;
-
-async function analyzeImages(){
-  if(pendingImages.length===0) return;
-  const statusEl = document.getElementById('statusLine');
-  const btn = document.getElementById('analyzeBtn');
-  btn.disabled = true;
-  statusEl.style.display='flex';
-
-  let allResults = [];
-  let failCount = 0;
-  let lastError = '';
-  for(let i=0;i<pendingImages.length;i++){
-    statusEl.innerHTML = `<div class="spinner"></div> Đang đọc ảnh ${i+1}/${pendingImages.length}...`;
-    const img = pendingImages[i];
-    try{
-      const resp = await fetch('/api/analyze', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          mediaType: img.mediaType,
-          base64: img.base64,
-          prompt: EXTRACTION_PROMPT
-        })
-      });
-      const data = await resp.json();
-      if(!resp.ok || data.error){
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
-      const arr = Array.isArray(data.transactions) ? data.transactions : [];
-      allResults = allResults.concat(arr);
-    }catch(e){
-      failCount++;
-      lastError = e.message || String(e);
-      console.error('Lỗi đọc ảnh', i, e);
-    }
+  if(!date || !merchant || !amount || amount<=0){
+    statusEl.style.display='flex';
+    statusEl.innerHTML = 'Nhập đủ ngày, nội dung và số tiền (lớn hơn 0) nhé.';
+    return;
   }
-
   statusEl.style.display='none';
-  if(failCount > 0){
-    showToast(`${failCount}/${pendingImages.length} ảnh đọc lỗi: ${lastError}`);
-    if(allResults.length===0){ btn.disabled = false; return; }
-  }
 
-  const year = new Date().getFullYear();
-  const mapped = allResults.filter(r=>r.date && r.time && r.amount).map(r=>{
-    const [d,m] = r.date.split('/');
-    const date = `${year}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    const merchant = r.merchant || 'Không rõ';
-    const cat = categorize(merchant);
-    const type = ['chi','hoan','nap'].includes(r.type) ? r.type : 'chi';
-    const card = (r.card && /\d{2,6}\.\.\.\d{2,4}/.test(r.card)) ? r.card : DEFAULT_CARD;
-    if(r.bank && !CARD_BANKS[card]) CARD_BANKS[card] = r.bank;
-    const id = `${date}-${r.time}-${r.amount}-${merchant}-${card}`.replace(/\s+/g,'_');
-    return {id, date, time:r.time, merchant, cat, amount: Math.round(r.amount), type, card};
-  });
-  saveCardBanks();
+  const card = (activeCard && activeCard!=='ALL') ? activeCard : DEFAULT_CARD;
+  const id = `${date}-${time}-${amount}-${merchant}-${card}-${Date.now()}`.replace(/\s+/g,'_');
+  TX.push({id, date, time, merchant, cat, amount, type, card});
+  await saveTx();
 
-  showPreview(mapped);
-  clearImages();
+  document.getElementById('mMerchant').value = '';
+  document.getElementById('mAmount').value = '';
+  prefillManualForm();
+  activeMonth = null;
+  render();
+  showToast('Đã thêm giao dịch');
 }
 
 function parseSmsBlock(text){

@@ -1,38 +1,27 @@
-# Sổ Chi Tiêu — bản độc lập (tự host trên Vercel, dùng Google Gemini miễn phí)
+# Sổ Chi Tiêu — bản độc lập (tự host trên Vercel)
 
 Đây là bản đóng gói lại của dashboard để bạn tự deploy lên Vercel và dùng
-bất cứ lúc nào, không cần mở qua Claude. Bản này dùng **Google Gemini API**
-(gói miễn phí, không cần thẻ tín dụng) để đọc ảnh thay vì Anthropic.
+bất cứ lúc nào, không cần mở qua Claude. Bản này **không dùng AI để đọc ảnh**
+(đã bỏ, vì độ chính xác không ổn định) — bạn thêm giao dịch bằng cách dán
+nguyên văn tin nhắn ngân hàng hoặc nhập tay. Nhờ vậy, bản này **không cần
+API key, không cần backend, không tốn phí AI nào cả** — chỉ còn Firebase
+(tùy chọn) nếu bạn muốn đồng bộ nhiều thiết bị.
 
 ## Có gì khác so với bản artifact trong chat?
 
 | | Bản trong chat Claude | Bản độc lập này |
 |---|---|---|
-| Đọc ảnh (OCR) | Claude xử lý sẵn, miễn phí | Gọi Gemini API bằng **API key miễn phí của bạn**, backend nhỏ ở `/api/analyze.js` lo việc này |
+| Thêm giao dịch | Dán tin nhắn, nhập tay, hoặc chụp ảnh (Claude đọc hộ) | Dán tin nhắn hoặc nhập tay (không có chụp ảnh) |
 | Lưu dữ liệu | Lưu trên tài khoản Claude | Mặc định: `localStorage` trên từng thiết bị. **Tùy chọn:** bật Firebase (Firestore) bên dưới để đồng bộ nhiều thiết bị, miễn phí, không cần đăng nhập |
 | Truy cập | Chỉ trong đoạn chat | Mở link bất cứ lúc nào, không cần Claude |
-| Chi phí | — | 0đ nếu ở trong hạn mức miễn phí của Gemini (xem bên dưới) |
+| Chi phí | — | 0đ, không cần API key nào |
 
-## Giới hạn miễn phí của Gemini (model `gemini-flash-latest`)
+## Các bước deploy (khoảng 5 phút, không cần biết code)
 
-Tính đến giữa 2026: khoảng **15 lượt gọi/phút** và **~1.500 lượt gọi/ngày**, không cần khai báo thẻ.
-Với nhu cầu cá nhân (vài chục ảnh mỗi ngày) thì dư sức dùng thoải mái, không tốn tiền.
-Lưu ý: Google có thể dùng nội dung bạn gửi ở gói miễn phí để cải thiện mô hình của họ —
-nếu bạn thấy nhạy cảm về việc này, có thể bật billing để chuyển sang gói trả phí (rẻ, theo lượng dùng)
-để tắt việc đó. Giới hạn chính xác có thể thay đổi theo thời gian, kiểm tra tại
-https://ai.google.dev/gemini-api/docs/rate-limits
+### 1. Tạo tài khoản Vercel
+Vào https://vercel.com → **Sign up** (có thể đăng nhập bằng GitHub cho tiện)
 
-## Các bước deploy (khoảng 10 phút, không cần biết code)
-
-### 1. Lấy API key miễn phí của Google
-1. Vào https://aistudio.google.com/apikey → đăng nhập bằng tài khoản Google
-2. Bấm **Create API key** → chọn hoặc tạo 1 Google Cloud project (không cần bật billing)
-3. Copy lại key (dạng chuỗi ký tự, không có tiền tố cố định)
-
-### 2. Tạo tài khoản Vercel
-1. Vào https://vercel.com → **Sign up** (có thể đăng nhập bằng GitHub cho tiện)
-
-### 3. Đưa project này lên Vercel
+### 2. Đưa project này lên Vercel
 Cách dễ nhất nếu bạn không quen dùng dòng lệnh:
 1. Tạo 1 repo mới trên GitHub, tải toàn bộ nội dung trong file zip mình gửi lên repo đó (kéo-thả trên giao diện web GitHub cũng được, không cần biết git)
 2. Vào Vercel → **Add New → Project** → chọn repo vừa tạo → **Deploy**
@@ -44,25 +33,20 @@ cd so-chi-tieu-ca-nhan
 vercel deploy --prod
 ```
 
-### 4. Khai báo API key cho Vercel
-1. Vào project vừa deploy trên Vercel → **Settings → Environment Variables**
-2. Thêm biến: Name = `GEMINI_API_KEY`, Value = key bạn lấy ở bước 1
-3. Chọn cả 3 môi trường (Production, Preview, Development) → **Save**
-4. Vào tab **Deployments** → bấm **Redeploy** ở lần deploy gần nhất (để biến môi trường có hiệu lực)
+### 3. Xong — mở link Vercel cấp cho bạn (dạng `ten-du-an.vercel.app`) và dùng như bình thường.
 
-### 5. Xong — mở link Vercel cấp cho bạn (dạng `ten-du-an.vercel.app`) và dùng như bình thường.
+Không có bước cấu hình biến môi trường nào cả — vì không còn gọi AI, chỉ cần deploy là chạy.
 
 ## Cấu trúc file
 ```
-index.html          → toàn bộ giao diện + logic (giống bản trong chat)
-api/analyze.js       → serverless function, giữ Gemini API key an toàn ở server
+index.html          → toàn bộ giao diện + logic (giống bản trong chat, trừ phần đọc ảnh)
 firebase-config.js   → dán config Firebase vào đây để bật đồng bộ nhiều thiết bị (tùy chọn)
-package.json         → khai báo Node runtime cho Vercel
+package.json         → khai báo project cho Vercel
 ```
 
-## Lưu ý
-- Nếu đọc ảnh báo lỗi, mở tab **Deployments → xem Logs** trên Vercel để thấy lỗi thật từ `api/analyze.js` (thường là do chưa set đúng API key, key sai project, hoặc vượt hạn mức miễn phí trong ngày).
-- Google đổi/khai tử model Gemini khá thường xuyên (đã từng xảy ra việc 1 model bị khoá đột ngột trước cả ngày công bố chính thức). File `api/analyze.js` đã thử lần lượt vài model (`gemini-flash-latest` → `gemini-2.5-flash` → `gemini-flash-lite-latest`) nên thường sẽ tự "né" được các đợt khai tử mà không cần bạn sửa gì. Nếu cả 3 vẫn lỗi (rất hiếm), nói mình biết để cập nhật danh sách `MODEL_CANDIDATES` sang model mới nhất tại https://ai.google.dev/gemini-api/docs/models
+## Cách thêm giao dịch
+- **Dán tin nhắn**: copy nguyên văn tin nhắn SMS/thông báo ngân hàng, dán vào ô trong app, bấm "Phân tích" — dán được nhiều tin cùng lúc.
+- **Nhập tay**: chuyển sang tab "Nhập tay" trong khung thêm giao dịch, điền ngày/giờ/nội dung/số tiền/danh mục rồi bấm "Thêm giao dịch" — form tự để trống lại để bạn nhập tiếp giao dịch kế tiếp nhanh hơn.
 
 ---
 
@@ -108,4 +92,3 @@ Rule này cho phép đọc/ghi 1 "board" cụ thể nếu biết đúng mã (≥
 3. Từ giờ 2 thiết bị dùng chung 1 dữ liệu, cập nhật gần như tức thời
 
 Muốn ngừng đồng bộ trên 1 thiết bị (quay lại lưu riêng cục bộ), vào **Quản lý dữ liệu → Ngắt đồng bộ trên máy này** — dữ liệu trên đám mây không bị xoá, chỉ máy đó thôi liên kết.
-
