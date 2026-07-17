@@ -45,8 +45,9 @@ package.json         → khai báo project cho Vercel
 ```
 
 ## Cách thêm giao dịch
-- **Dán tin nhắn**: copy nguyên văn tin nhắn SMS/thông báo ngân hàng, dán vào ô trong app, bấm "Phân tích" — dán được nhiều tin cùng lúc.
-- **Nhập tay**: chuyển sang tab "Nhập tay" trong khung thêm giao dịch, điền ngày/giờ/nội dung/số tiền/danh mục rồi bấm "Thêm giao dịch" — form tự để trống lại để bạn nhập tiếp giao dịch kế tiếp nhanh hơn.
+- **Dán tin nhắn**: copy nguyên văn tin nhắn SMS/thông báo ngân hàng, dán vào ô trong app, bấm "Phân tích" — dán được nhiều tin cùng lúc. Mỗi dòng kết quả có 2 ô chọn: **Thẻ** và **Danh mục** — sửa lại nếu app đoán sai, hoặc chọn "+ Thêm thẻ mới…" / "+ Thêm danh mục mới…" để tạo mới ngay tại chỗ.
+- **Nhập tay**: chuyển sang tab "Nhập tay" trong khung thêm giao dịch, điền ngày/giờ/nội dung/số tiền, chọn **Thẻ** và **Danh mục** (hoặc tạo mới bằng "+ Thêm thẻ mới…" / "+ Thêm danh mục mới…") rồi bấm "Thêm giao dịch" — form tự để trống lại để bạn nhập tiếp giao dịch kế tiếp nhanh hơn.
+- Thẻ/danh mục tự tạo sẽ xuất hiện luôn trong các lần thêm sau, và đồng bộ qua các thiết bị khác nếu bạn đã bật Firebase.
 
 ---
 
